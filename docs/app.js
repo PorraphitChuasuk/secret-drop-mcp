@@ -52,8 +52,15 @@ async function main() {
     }
     $('send').disabled = true;
     say('Encrypting and sending…');
+    let sealed;
     try {
-      const sealed = await seal(key.key, req.id, req.name, value);
+      sealed = await seal(key.key, req.id, req.name, value);
+    } catch {
+      say("This browser couldn't encrypt it. Try an up-to-date Safari, Chrome or Firefox.", 'error');
+      $('send').disabled = false;
+      return;
+    }
+    try {
       const r = await fetch(`https://${req.host}/r/${req.id}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...sealed, kid: key.kid }),
       });
