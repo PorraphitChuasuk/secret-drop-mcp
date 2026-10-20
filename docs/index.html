@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.trycloudflare.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Secret drop</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main>
+  <h1>Send a secret</h1>
+  <p class="lead">It's encrypted in this browser before it leaves. Only the server that asked for it can read it.</p>
+  <p class="name">Saving as <code id="name">…</code></p>
+  <p id="note" class="note" hidden></p>
+  <form id="form" hidden>
+    <label for="secret">Secret</label>
+    <div class="row">
+      <input id="secret" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      <button type="button" id="show" class="quiet">Show</button>
+    </div>
+    <p id="hint" class="hint"></p>
+    <button id="send" type="submit">Encrypt and send</button>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+  <p class="foot">Server key <code id="kid">…</code> · <a href="https://github.com/PorraphitChuasuk/secret-drop-mcp">source</a></p>
+</main>
+</body>
+</html>

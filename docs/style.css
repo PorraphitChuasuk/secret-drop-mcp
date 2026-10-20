@@ -1,0 +1,69 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f3;
+  --fg: #1c1c1a;
+  --muted: #6a6a64;
+  --field: #ffffff;
+  --line: #d9d9d2;
+  --accent: #2d6a4f;
+  --on-accent: #ffffff;
+  --error: #b3261e;
+  --ok: #2d6a4f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151514;
+    --fg: #ececea;
+    --muted: #a3a39c;
+    --field: #1f1f1d;
+    --line: #3a3a36;
+    --accent: #79c29d;
+    --on-accent: #10231a;
+    --error: #f2b8b5;
+    --ok: #79c29d;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 34rem; margin: 0 auto; padding: 2.5rem 16px; }
+h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+.lead, .hint, .foot { color: var(--muted); }
+.lead { margin: 0 0 1.5rem; }
+code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.note { border-left: 3px solid var(--line); padding-left: .75rem; }
+label { display: block; font-weight: 600; margin: 1.25rem 0 .35rem; }
+.row { display: flex; gap: .5rem; }
+input {
+  flex: 1;
+  min-width: 0;
+  font: 16px ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: .7rem .8rem;
+  color: var(--fg);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hint { font-size: .9rem; margin: .35rem 0 1rem; overflow-wrap: anywhere; }
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: .7rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+button.quiet { background: transparent; color: var(--fg); border-color: var(--line); }
+button:disabled { opacity: .6; cursor: default; }
+#status { min-height: 1.5em; margin-top: 1.25rem; }
+#status.error { color: var(--error); }
+#status.ok { color: var(--ok); font-weight: 600; }
+.foot { font-size: .85rem; margin-top: 3rem; }
+.foot a { color: inherit; }
