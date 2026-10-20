@@ -16,7 +16,7 @@ your browser ──loads the form──────▶ GitHub Pages (docs/: stat
 
 | Tool | What it does |
 |------|--------------|
-| `request_secret(name, prefix?, note?, minutes?)` | Opens a one-time form and returns its link. `prefix` refuses values that don't start with it; `note` is shown on the form; the link is valid 1–60 min (default 15). |
+| `request_secret(name, prefix?, note?, minutes?, send_link?)` | Opens a one-time form and sends its link to you (see below), or returns it. `prefix` refuses values that don't start with it; `note` is shown with the link and on the form; the link is valid 1–60 min (default 15). |
 | `secret_status(request_id, wait_seconds?)` | `pending` / `saved` (path, length) / `expired` / `cancelled`. Waits up to 300 s for a change. |
 | `cancel_secret_request(request_id)` | Kills a pending link. |
 | `list_secrets()` | Names, sizes and dates in `~/.config/secrets`. |
@@ -24,6 +24,14 @@ your browser ──loads the form──────▶ GitHub Pages (docs/: stat
 **No tool ever returns a secret's value.** Secrets are written only to
 `~/.config/secrets/<name>` (`name`: lowercase letters, digits, dashes), mode
 600 in a 700 directory, with the previous value kept as `<name>.prev`.
+
+## Sending the link
+
+Set `SECRET_DROP_NOTIFY` to a command that messages you directly; it's run as
+`$SECRET_DROP_NOTIFY <text> <label> <url>` and must exit 0 only when sent.
+Then the link goes straight to you and isn't returned to Claude, so a long URL
+never has to be retyped in the chat. Without it, or if sending fails,
+`request_secret` returns the link for Claude to pass on.
 
 ## How it protects the secret
 
@@ -48,6 +56,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python server.py init-key        # ~/.config/secret-drop/key.pem + docs/pubkey.json
 git add docs/pubkey.json && git commit -m "Publish server key" && git push
 claude mcp add --scope user secret-drop -- "$PWD/.venv/bin/python" "$PWD/server.py"
+# optional, to send links directly: register with an env
+claude mcp add-json --scope user secret-drop \
+  '{"type":"stdio","command":"'"$PWD"'/.venv/bin/python","args":["'"$PWD"'/server.py"],"env":{"SECRET_DROP_NOTIFY":"/path/to/notify"}}'
 ```
 
 Needs `cloudflared` (Cloudflare's apt repo), and GitHub Pages serving `docs/`

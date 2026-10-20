@@ -9,7 +9,7 @@ this server is the only place it is ever readable. It's saved to
 
     server.py                   run as an MCP server (stdio)
     server.py init-key          create the key pair and write docs/pubkey.json
-    server.py request NAME ...  request_secret from a shell; prints the link, then waits
+    server.py request NAME ...  request_secret from a shell; sends (or prints) the link, then waits
 """
 from __future__ import annotations
 
@@ -31,21 +31,30 @@ atexit.register(box.close)
 
 
 @mcp.tool()
-async def request_secret(name: str, prefix: str = "", note: str = "", minutes: int = 15) -> dict:
+async def request_secret(name: str, prefix: str = "", note: str = "", minutes: int = 15,
+                         send_link: bool = True) -> dict:
     """Ask the user for a secret (API token, password, webhook URL, ...) without it passing through the chat.
 
-    Opens a one-time form and returns its `link`. Give the user the link exactly as returned, in
-    full, on its own line - it's long, and a shortened one won't work. They paste the secret into
-    the form, their browser encrypts it to this server's key, and it's saved to
-    ~/.config/secrets/<name> (mode 600; an older value is kept as <name>.prev). Never ask the
-    user to paste a secret into the chat instead. Then wait with secret_status.
+    Opens a one-time form. The user pastes the secret into it, their browser encrypts it to this
+    server's key, and it's saved to ~/.config/secrets/<name> (mode 600; an older value is kept as
+    <name>.prev). Never ask the user to paste a secret into the chat instead. Then wait with
+    secret_status.
+
+    The form link is sent straight to the user (e.g. to their Google Chat) and not returned:
+    when `delivered` is true, just tell them it's there - don't repeat or ask for the link. Only
+    when `delivered` is false is `link` returned: then give it to the user exactly as returned, in
+    full, on its own line (it's long; a shortened one won't work).
 
     name: file name - lowercase letters, digits and dashes, e.g. "gchat-webhook".
     prefix: optional start the value must have, e.g. "https://chat.googleapis.com/"; others are refused.
-    note: optional line shown on the form, e.g. what it's for or where to find it.
-    minutes: how long the link stays valid, 1-60 (default 15)."""
+    note: optional line shown with the link and on the form, e.g. what it's for or where to find it.
+    minutes: how long the link stays valid, 1-60 (default 15).
+    send_link: False returns the link instead of sending it, e.g. if the user says it never arrived."""
     req, link = await asyncio.to_thread(box.create, name, prefix, note, minutes)
-    return {**req.info(), "link": link}
+    sent, why = await asyncio.to_thread(drop.deliver, req, link) if send_link else (False, "send_link=False")
+    if sent:
+        return {**req.info(), "delivered": True}
+    return {**req.info(), "delivered": False, "not_delivered_because": why, "link": link}
 
 
 @mcp.tool()
@@ -73,11 +82,12 @@ def _cli(argv: list[str]) -> None:
     ap = argparse.ArgumentParser(prog="server.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init-key", help="create the key pair (if missing) and write docs/pubkey.json")
-    rq = sub.add_parser("request", help="ask for a secret; prints the link, then waits for the result")
+    rq = sub.add_parser("request", help="ask for a secret; sends (or prints) the link, then waits for the result")
     rq.add_argument("name")
     rq.add_argument("--prefix", default="")
     rq.add_argument("--note", default="")
     rq.add_argument("--minutes", type=int, default=15)
+    rq.add_argument("--print-link", action="store_true", help="print the link instead of sending it")
     args = ap.parse_args(argv)
 
     if args.cmd == "init-key":
@@ -88,7 +98,8 @@ def _cli(argv: list[str]) -> None:
         return
 
     req, link = box.create(args.name, args.prefix, args.note, args.minutes)
-    print(link, flush=True)
+    sent, why = (False, "--print-link") if args.print_link else drop.deliver(req, link)
+    print("sent the form link to the user" if sent else link, flush=True)
     info = box.status(req.id)
     while info["status"] == "pending":
         info = box.status(req.id, 300)

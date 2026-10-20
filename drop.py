@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -25,6 +26,9 @@ PAGE_URL = os.environ.get("SECRET_DROP_PAGE_URL", "https://porraphitchuasuk.gith
 PAGE_ORIGIN = "{0.scheme}://{0.netloc}".format(urllib.parse.urlsplit(PAGE_URL))
 KEY_PATH = Path(os.environ.get("SECRET_DROP_KEY", "~/.config/secret-drop/key.pem")).expanduser()
 SECRETS_DIR = Path(os.environ.get("SECRET_DROP_DIR", "~/.config/secrets")).expanduser()
+# Optional command that sends a message straight to the user, run as: NOTIFY <text> <label> <url>.
+# It must exit 0 only when sent. Then the link never has to pass through the chat.
+NOTIFY = os.environ.get("SECRET_DROP_NOTIFY", "")
 
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 _POST_PATH = re.compile(r"/r/([A-Za-z0-9_-]{32})")
@@ -73,6 +77,25 @@ def write_secret(name: str, value: str) -> Path:
         os.replace(path, SECRETS_DIR / (name + ".prev"))
     os.replace(tmp, path)
     return path
+
+
+def deliver(req: Request, link: str) -> tuple[bool, str]:
+    """Send the form link to the user with NOTIFY. Returns (sent, why not)."""
+    if not NOTIFY:
+        return False, "SECRET_DROP_NOTIFY is not set"
+    text = "🔐 Claude is asking for a secret: *%s*" % req.name
+    if req.note:
+        text += "\n" + req.note
+    text += "\nThe link works once, for %d minutes." % max(1, round((req.expires_at - time.time()) / 60))
+    try:
+        # Output is captured: on failure the notifier may print the link, and stdout here may be MCP's.
+        r = subprocess.run([NOTIFY, text, "Open the secret form", link],
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+    if r.returncode == 0:
+        return True, ""
+    return False, (r.stderr.strip().splitlines() or ["%s exited %d" % (NOTIFY, r.returncode)])[-1]
 
 
 def list_secrets() -> list:

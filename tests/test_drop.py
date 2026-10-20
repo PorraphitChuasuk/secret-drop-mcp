@@ -132,5 +132,46 @@ class Receiver(unittest.TestCase):
                 self.box.create(name)
 
 
+class Delivery(unittest.TestCase):
+    """deliver() hands the link to SECRET_DROP_NOTIFY; a fake notifier records what it got."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.args = Path(self.tmp.name) / "args"
+        self.fake = Path(self.tmp.name) / "notify"
+        self._notify = drop.NOTIFY
+        self.req = drop.Request(id="r" * 32, name="gchat-webhook", prefix="", note="Chat > Webhooks",
+                                expires_at=time.time() + 15 * 60)
+
+    def tearDown(self):
+        drop.NOTIFY = self._notify
+        self.tmp.cleanup()
+
+    def notifier(self, code, stderr=""):
+        self.fake.write_text("#!/bin/sh\nprintf '%%s\\0' \"$@\" > %s\necho \"$3\"\necho '%s' >&2\nexit %d\n"
+                             % (self.args, stderr, code))
+        self.fake.chmod(0o700)
+        drop.NOTIFY = str(self.fake)
+
+    def test_sends_text_label_and_exact_link(self):
+        self.notifier(0)
+        self.assertEqual(drop.deliver(self.req, "https://page/#t=x&i=y"), (True, ""))
+        text, label, link = self.args.read_text().split("\0")[:3]
+        self.assertIn("gchat-webhook", text)
+        self.assertIn("Chat > Webhooks", text, "the note goes with the link")
+        self.assertIn("15 minutes", text)
+        self.assertEqual((label, link), ("Open the secret form", "https://page/#t=x&i=y"))
+
+    def test_failure_reports_why_and_swallows_output(self):
+        self.notifier(1, "Google Chat send failed (403)")
+        self.assertEqual(drop.deliver(self.req, "https://page/"), (False, "Google Chat send failed (403)"))
+
+    def test_not_configured(self):
+        drop.NOTIFY = ""
+        self.assertFalse(drop.deliver(self.req, "https://page/")[0])
+        drop.NOTIFY = str(Path(self.tmp.name) / "missing")
+        self.assertFalse(drop.deliver(self.req, "https://page/")[0], "a missing notifier means not sent")
+
+
 if __name__ == "__main__":
     unittest.main()
